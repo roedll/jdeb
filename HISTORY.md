@@ -2,10 +2,15 @@
 
 * [ADD] xz compression support
 * [ADD] Added link support to the Ant task
+* [ADD] Added support for system properties in parsed files (Thanks to David Sauer)
 * [ADD] Support permission in (hard) link setup
+* [ADD] User defined fields in the control file are now supported (Thanks to Marco Soeima)
+* [ADD] Added the ability to disable an execution during Maven build (Thanks to  Jonathan Piron)
 * [FIX] On Windows, parent directories are now created automatically when adding files to the data archive
 * [CHG] Links are now symbolic by default
-
+* [CHG] Alpha, Beta and RC versions are transformed to a package version ordered before the final release (ex: 1.0~RC1)
+* [FIX] Permission mappers now work properly with Ant (Thanks to Christian Egli)
+* [FIX] Symbolic links longer than 100 characters are now supported
 
 ## Version 1.0.1, released 28.02.2013
 

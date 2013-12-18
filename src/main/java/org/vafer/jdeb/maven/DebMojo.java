@@ -18,6 +18,7 @@ package org.vafer.jdeb.maven;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -30,8 +31,14 @@ import java.util.Set;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugins.annotations.Component;
+import org.apache.maven.plugins.annotations.LifecyclePhase;
+import org.apache.maven.plugins.annotations.Mojo;
+import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.project.MavenProjectHelper;
+import org.apache.maven.settings.Profile;
+import org.apache.maven.settings.Settings;
 import org.apache.tools.tar.TarEntry;
 import org.vafer.jdeb.Console;
 import org.vafer.jdeb.DataConsumer;
@@ -43,78 +50,67 @@ import org.vafer.jdeb.utils.MapVariableResolver;
 import org.vafer.jdeb.utils.Utils;
 import org.vafer.jdeb.utils.VariableResolver;
 
+import static org.vafer.jdeb.utils.Utils.lookupIfEmpty;
+
 /**
- * Creates deb archive
- *
- * @goal jdeb
- * @phase package
+ * Creates Debian package
  */
+@SuppressWarnings("unused")
+@Mojo(name = "jdeb", defaultPhase = LifecyclePhase.PACKAGE)
 public class DebMojo extends AbstractPluginMojo {
 
-    /**
-     * @component
-     */
+    @Component
     private MavenProjectHelper projectHelper;
-    
+
     /**
      * Defines the name of deb package.
-     *
-     * @parameter
      */
+    @Parameter
     private String name;
 
     /**
      * Defines the pattern of the name of final artifacts. Possible
      * substitutions are [[baseDir]] [[buildDir]] [[artifactId]] [[version]]
      * [[extension]] and [[groupId]].
-     *
-     * @parameter default-value="[[buildDir]]/[[artifactId]]_[[version]]_all.[[extension]]"
      */
+    @Parameter(defaultValue = "[[buildDir]]/[[artifactId]]_[[version]]_all.[[extension]]")
     private String deb;
 
     /**
      * Explicitly defines the path to the control directory. At least the
      * control file is mandatory.
-     *
-     * @parameter default-value="[[baseDir]]/src/deb/control"
      */
+    @Parameter(defaultValue = "[[baseDir]]/src/deb/control")
     private String controlDir;
 
     /**
      * Explicitly define the file to read the changes from.
-     *
-     * @parameter default-value="[[baseDir]]/CHANGES.txt"
      */
+    @Parameter(defaultValue = "[[baseDir]]/CHANGES.txt")
     private String changesIn;
 
     /**
      * Explicitly define the file where to write the changes to.
-     *
-     * @parameter default-value="[[buildDir]]/[[artifactId]]_[[version]]_all.changes"
      */
+    @Parameter(defaultValue = "[[buildDir]]/[[artifactId]]_[[version]]_all.changes")
     private String changesOut;
 
     /**
-     * Explicitly define the file where to write the changes of the changes
-     * input to.
-     *
-     * @parameter default-value="[[baseDir]]/CHANGES.txt"
+     * Explicitly define the file where to write the changes of the changes input to.
      */
+    @Parameter(defaultValue = "[[baseDir]]/CHANGES.txt")
     private String changesSave;
 
     /**
      * The compression method used for the data file (none, gzip, bzip2 or xz)
-     *
-     * @parameter default-value="gzip"
      */
+    @Parameter(defaultValue = "gzip")
     private String compression;
-
 
     /**
      * Boolean option whether to attach the artifact to the project
-     *
-     * @parameter default-value="true"
      */
+    @Parameter(defaultValue = "true")
     private String attach;
 
     /**
@@ -122,51 +118,40 @@ public class DebMojo extends AbstractPluginMojo {
      * packages are installed in /opt (see the FHS here:
      * http://www.pathname.com/
      * fhs/pub/fhs-2.3.html#OPTADDONAPPLICATIONSOFTWAREPACKAGES)
-     *
-     * @parameter default-value="/opt/[[artifactId]]"
      */
+    @Parameter(defaultValue = "/opt/[[artifactId]]")
     private String installDir;
-
 
     /**
      * The type of attached artifact
-     *
-     * @parameter default-value="deb"
      */
+    @Parameter(defaultValue = "deb")
     private String type;
 
     /**
      * The project base directory
-     *
-     * @parameter default-value="${basedir}"
-     * @required
-     * @readonly
      */
+    @Parameter(defaultValue = "${basedir}", required = true, readonly = true)
     private File baseDir;
 
     /**
      * Run the plugin on all sub-modules.
      * If set to false, the plugin will be run in the same folder where the
      * mvn command was invoked
-     *
-     * @parameter expression="${submodules}" default-value="true"
      */
+    @Parameter(defaultValue = "true")
     private boolean submodules;
 
     /**
      * The Maven Session Object
-     *
-     * @parameter expression="${session}"
-     * @required
-     * @readonly
      */
+    @Component
     private MavenSession session;
 
     /**
      * The classifier of attached artifact
-     *
-     * @parameter
      */
+    @Parameter
     private String classifier;
 
     /**
@@ -221,40 +206,79 @@ public class DebMojo extends AbstractPluginMojo {
      *     </plugins>
      *   </build>
      * </pre>
-     *
-     * @parameter expression="${dataSet}"
      */
+    @Parameter
     private Data[] dataSet;
 
     /**
      * When SNAPSHOT version replace <code>SNAPSHOT</code> with current date
      * and time to make sure each build is unique.
-     *
-     * @parameter expression="${timestamped}" default-value="false"
      */
+    @Parameter(defaultValue = "false")
     private boolean timestamped;
 
     /**
-     * If verbose is true info messages also get logged.
-     * Will be changed to "false" in future versions.
-     * Left to "true" for the transition.
-     *
-     * @parameter expression="${verbose}" default-value="true"
+     * If verbose is true more build messages are logged.
      */
+    @Parameter(defaultValue = "false")
     private boolean verbose;
 
     /**
      * Indicates if the execution should be disabled. If <code>true</code>, nothing will occur during execution.
      * 
-     * @parameter default-value="false"
      * @since 1.1
      */
-    private boolean disabled;
+    @Parameter(defaultValue = "false")
+    private boolean skip;
+
+    /**
+     * If signPackage is true then a origin signature will be placed
+     * in the generated package.
+     */
+    @Parameter(defaultValue = "false")
+    private boolean signPackage;
+
+    /**
+     * The keyring to use for signing operations.
+     */
+    @Parameter
+    private String keyring;
+
+    /**
+     * The key to use for signing operations.
+     */
+    @Parameter
+    private String key;
+
+    /**
+     * The passphrase to use for signing operations.
+     */
+    @Parameter
+    private String passphrase; 
+
+    /**
+     * The prefix to use when reading signing variables
+     * from settings.
+     */
+    @Parameter(defaultValue = "jdeb.")
+    private String signCfgPrefix;
+
+    /**
+     * The settings.
+     */
+    @Parameter(defaultValue = "${settings}")
+    private Settings settings;
 
     /* end of parameters */
 
+
+    private static final String KEY = "key";
+    private static final String KEYRING = "keyring";
+    private static final String PASSPHRASE = "passphrase";
+
     private String openReplaceToken = "[[";
     private String closeReplaceToken = "]]";
+    private Console console;
     private Collection<DataProducer> dataProducers = new ArrayList<DataProducer>();
     private Collection<DataProducer> conffileProducers = new ArrayList<DataProducer>();
 
@@ -286,8 +310,13 @@ public class DebMojo extends AbstractPluginMojo {
     }
 
     protected VariableResolver initializeVariableResolver( Map<String, String> variables ) {
-        ((Map) variables).putAll(getProject().getProperties());
-        ((Map) variables).putAll(System.getProperties());
+        @SuppressWarnings("unchecked")
+        final Map<String, String> projectProperties = Map.class.cast(getProject().getProperties());
+        @SuppressWarnings("unchecked")
+        final Map<String, String> systemProperties = Map.class.cast(System.getProperties());
+
+        variables.putAll(projectProperties);
+        variables.putAll(systemProperties);
         variables.put("name", name != null ? name : getProject().getName());
         variables.put("artifactId", getProject().getArtifactId());
         variables.put("groupId", getProject().getGroupId());
@@ -342,7 +371,7 @@ public class DebMojo extends AbstractPluginMojo {
 
         final MavenProject project = getProject();
 
-        if (disabled){
+        if (skip) {
             getLog().info("skipping execution");
             return;
         }
@@ -354,7 +383,9 @@ public class DebMojo extends AbstractPluginMojo {
 
         setData(dataSet);
 
-        Console console = new MojoConsole(getLog(), verbose);
+        console = new MojoConsole(getLog(), verbose);
+
+        initializeSignProperties();
 
         final VariableResolver resolver = initializeVariableResolver(new HashMap<String, String>());
 
@@ -364,6 +395,7 @@ public class DebMojo extends AbstractPluginMojo {
         final File changesInFile = new File(Utils.replaceVariables(resolver, changesIn, openReplaceToken, closeReplaceToken));
         final File changesOutFile = new File(Utils.replaceVariables(resolver, changesOut, openReplaceToken, closeReplaceToken));
         final File changesSaveFile = new File(Utils.replaceVariables(resolver, changesSave, openReplaceToken, closeReplaceToken));
+        final File keyringFile = keyring == null ? null : new File(Utils.replaceVariables(resolver, keyring, openReplaceToken, closeReplaceToken));
 
         // if there are no producers defined we try to use the artifacts
         if (dataProducers.isEmpty()) {
@@ -385,11 +417,17 @@ public class DebMojo extends AbstractPluginMojo {
 
                 artifacts.add(project.getArtifact());
 
-                for (Artifact artifact : (Set<Artifact>) project.getArtifacts()) {
+                @SuppressWarnings("unchecked")
+                final Set<Artifact> projectArtifacts = project.getArtifacts();
+
+                for (Artifact artifact : projectArtifacts) {
                     artifacts.add(artifact);
                 }
 
-                for (Artifact artifact : (List<Artifact>) project.getAttachedArtifacts()) {
+                @SuppressWarnings("unchecked")
+                final List<Artifact> attachedArtifacts = project.getAttachedArtifacts();
+
+                for (Artifact artifact : attachedArtifacts) {
                     artifacts.add(artifact);
                 }
 
@@ -430,13 +468,17 @@ public class DebMojo extends AbstractPluginMojo {
             debMaker.setChangesOut(changesOutFile);
             debMaker.setChangesSave(changesSaveFile);
             debMaker.setCompression(compression);
+            debMaker.setKeyring(keyringFile);
+            debMaker.setKey(key);
+            debMaker.setPassphrase(passphrase);
+            debMaker.setSignPackage(signPackage);
             debMaker.setResolver(resolver);
             debMaker.validate();
             debMaker.makeDeb();
 
             // Always attach unless explicitly set to false
             if ("true".equalsIgnoreCase(attach)) {
-                getLog().info("Attaching created debian archive " + debFile);
+                console.info("Attaching created debian package " + debFile);
                 projectHelper.attachArtifact(project, type, classifier, debFile);
             }
 
@@ -445,4 +487,86 @@ public class DebMojo extends AbstractPluginMojo {
             throw new MojoExecutionException("Failed to create debian package " + debFile, e);
         }
     }
+
+    /**
+     * Initializes unspecified sign properties using available defaults
+     * and global settings.
+     */
+    private void initializeSignProperties() {
+        if (!signPackage) {
+            return;
+        }
+
+        if (key != null && keyring != null && passphrase != null) {
+            return;
+        }
+
+        Map<String, String> properties =
+                readPropertiesFromActiveProfiles(signCfgPrefix, KEY, KEYRING, PASSPHRASE);
+
+        key = lookupIfEmpty(key, properties, KEY);
+        keyring = lookupIfEmpty(keyring, properties, KEYRING);
+        passphrase = lookupIfEmpty(passphrase, properties, PASSPHRASE);
+
+        if (keyring == null) {
+            try {
+                keyring = Utils.guessKeyRingFile().getAbsolutePath();
+                console.info("Located keyring at " + keyring);
+            } catch (FileNotFoundException e) {
+                console.warn(e.getMessage());
+            }
+        }
+    }
+
+
+    /**
+     * Read properties from the active profiles.
+     *
+     * Goes through all active profiles (in the order the
+     * profiles are defined in settings.xml) and extracts
+     * the desired properties (if present). The prefix is
+     * used when looking up properties in the profile but
+     * not in the returned map.
+     *
+     * @param prefix The prefix to use or null if no prefix should be used
+     * @param properties The properties to read
+     *
+     * @return A map containing the values for the properties that were found
+     */
+    public Map<String, String> readPropertiesFromActiveProfiles( final String prefix,
+                                                                 final String... properties ) {
+        if (settings == null) {
+            console.debug("No maven setting injected");
+            return Collections.emptyMap();
+        }
+
+        final List<String> activeProfilesList = settings.getActiveProfiles();
+        if (activeProfilesList.isEmpty()) {
+            console.debug("No active profiles found");
+            return Collections.emptyMap();
+        }
+
+        final Map<String, String> map = new HashMap<String, String>();
+        final Set<String> activeProfiles = new HashSet<String>(activeProfilesList);
+
+        // Iterate over all active profiles in order
+        for (final Profile profile : settings.getProfiles()) {
+            // Check if the profile is active
+            final String profileId = profile.getId();
+            if (activeProfiles.contains(profileId)) {
+                console.debug("Trying active profile " + profileId);
+                for (final String property : properties) {
+                    final String propKey = prefix != null ? prefix + property : property;
+                    final String value = profile.getProperties().getProperty(propKey);
+                    if (value != null) {
+                        console.debug("Found property " + property + " in profile " + profileId);
+                        map.put(property, value);
+                    }
+                }
+            }
+        }
+
+        return map;
+    }
+
 }

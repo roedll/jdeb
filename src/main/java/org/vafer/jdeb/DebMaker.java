@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 The jdeb developers.
+ * Copyright 2014 The jdeb developers.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -299,8 +299,13 @@ public class DebMaker {
                     @Override
                     public ChangeSet[] getChangesSets() {
                         return new ChangeSet[] {
-                                new ChangeSet(packageControlFile.get("Package"), packageControlFile.get("Version"), new Date(),
-                                        "stable", "low", packageControlFile.get("Maintainer"), new String[0])
+                                new ChangeSet(packageControlFile.get("Package"),
+                                        packageControlFile.get("Version"),
+                                        new Date(),
+                                        packageControlFile.get("Distribution") == null ? "stable" : packageControlFile.get("Distribution"),
+                                        packageControlFile.get("Urgency") == null ? "low" : packageControlFile.get("Urgency"),
+                                        packageControlFile.get("Maintainer"),
+                                        new String[0])
                         };
                     }
                 };

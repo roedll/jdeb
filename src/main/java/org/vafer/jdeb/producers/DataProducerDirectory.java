@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 The jdeb developers.
+ * Copyright 2014 The jdeb developers.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,12 +60,12 @@ public final class DataProducerDirectory extends AbstractDataProducer implements
                 continue;
             }
 
-            if (!isIncluded(dirname)) {
-                continue;
-            }
-
             if ('/' != File.separatorChar) {
                 dirname = dirname.replace(File.separatorChar, '/');
+            }
+
+            if (!isIncluded(dirname)) {
+                continue;
             }
 
             if (!dirname.endsWith("/")) {
@@ -91,12 +91,12 @@ public final class DataProducerDirectory extends AbstractDataProducer implements
             final File file = new File(baseDir, f);
             String filename = getFilename(baseDir, file);
 
-            if (!isIncluded(filename)) {
-                continue;
-            }
-
             if ('/' != File.separatorChar) {
                 filename = filename.replace(File.separatorChar, '/');
+            }
+
+            if (!isIncluded(filename)) {
+                continue;
             }
 
             TarArchiveEntry entry = new TarArchiveEntry(filename, true);

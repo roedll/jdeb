@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 The jdeb developers.
+ * Copyright 2014 The jdeb developers.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -65,7 +65,7 @@ public final class BinaryPackageControlFile extends ControlFile {
     }
 
     @Override
-   public void set(final String field, final String value) {
+    public void set(final String field, final String value) {
         super.set(field, value);
     }
 

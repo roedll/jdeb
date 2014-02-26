@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 The jdeb developers.
+ * Copyright 2014 The jdeb developers.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,7 +41,6 @@ public final class DataProducerLink extends AbstractDataProducer implements Data
         this.linkName = linkName;
     }
 
-    @Override
     public void produce( final DataConsumer pReceiver ) throws IOException {
         TarArchiveEntry entry = new TarArchiveEntry(path, symlink ? TarArchiveEntry.LF_SYMLINK : TarArchiveEntry.LF_LINK);
         entry.setLinkName(linkName);

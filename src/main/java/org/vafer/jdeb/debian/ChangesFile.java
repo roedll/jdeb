@@ -16,12 +16,13 @@
 
 package org.vafer.jdeb.debian;
 
+import org.vafer.jdeb.changes.ChangeSet;
+
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.Locale;
 import java.util.Map.Entry;
-
-import org.vafer.jdeb.changes.ChangeSet;
 
 /**
  * Reflecting a changes file
@@ -30,8 +31,6 @@ import org.vafer.jdeb.changes.ChangeSet;
  * @author Torsten Curdt
  */
 public final class ChangesFile extends ControlFile {
-
-    public static final DateFormat DATE_FORMAT = new SimpleDateFormat("EEE, d MMM yyyy HH:mm:ss Z", Locale.ENGLISH); // RFC 2822 format
 
     private static final ControlField[] FIELDS = {
             new ControlField("Format", true),
@@ -54,6 +53,8 @@ public final class ChangesFile extends ControlFile {
 
     public ChangesFile() {
         set("Format", "1.8");
+        set("Urgency", "low");
+        set("Distribution", "stable");
     }
 
     /**
@@ -69,7 +70,7 @@ public final class ChangesFile extends ControlFile {
         set("Version",      packageControlFile.get("Version"));
         set("Maintainer",   packageControlFile.get("Maintainer"));
         set("Changed-By",   packageControlFile.get("Maintainer"));
-        set("Distribution", packageControlFile.get("Distribution") == null ? "stable": packageControlFile.get("Distribution"));
+        set("Distribution", packageControlFile.get("Distribution"));
 
         for (Entry<String, String> entry : packageControlFile.getUserDefinedFields().entrySet()) {
             set(entry.getKey(), entry.getValue());
@@ -100,11 +101,18 @@ public final class ChangesFile extends ControlFile {
         set("Changes", sb.toString());
     }
 
+    @Override
     protected ControlField[] getFields() {
         return FIELDS;
     }
 
+    @Override
     protected char getUserDefinedFieldLetter() {
         return 'C';
+    }
+
+    public static String formatDate(Date date) {
+        final DateFormat format = new SimpleDateFormat("EEE, d MMM yyyy HH:mm:ss Z", Locale.ENGLISH); // RFC 2822 format
+        return format.format(date);
     }
 }

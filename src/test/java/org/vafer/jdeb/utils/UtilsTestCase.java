@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 The jdeb developers.
+ * Copyright 2014 The jdeb developers.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -86,6 +86,27 @@ public class UtilsTestCase extends TestCase {
         // mixed valid and unknown variables
         result = Utils.replaceVariables(resolver, "[[name]] [[test]]", "[[", "]]");
         assertEquals("jdeb [[test]]", result);
+
+        // nested vars
+        result = Utils.replaceVariables(new VariableResolver() {
+            public String get(String pKey) {
+                return "VAR";
+            }
+        }, "[[var]] [[ [[var]] [[ [[var]] ]] [[var]] ]]", "[[", "]]");
+
+        assertEquals("VAR [[ VAR [[ VAR ]] VAR ]]", result);
+    }
+
+    public void testReplaceVariablesWithinOpenCloseTokens() throws Exception {
+        Map<String, String> variables = new HashMap<String, String>();
+        variables.put("artifactId", "jdeb");
+
+        VariableResolver resolver = new MapVariableResolver(variables);
+
+        String result = Utils.replaceVariables(resolver, "if [[ -z \"$(grep [[artifactId]] /etc/passwd )\" ]] ; then", "[[", "]]");
+
+        assertEquals("", "if [[ -z \"$(grep jdeb /etc/passwd )\" ]] ; then", result);
+
     }
 
     public void testVersionConversion() {
@@ -98,5 +119,13 @@ public class UtilsTestCase extends TestCase {
         assertEquals("should match", "1.0~alpha3", Utils.convertToDebianVersion("1.0-alpha3", cal.getTime()));
         assertEquals("should match", "1.0~Beta+4", Utils.convertToDebianVersion("1.0.Beta-4", cal.getTime()));
         assertEquals("should match", "1.0~rc7", Utils.convertToDebianVersion("1.0rc7", cal.getTime()));
+    }
+
+    public void testMovePath() {
+        assertEquals("/usr/share/file.txt", Utils.movePath("file.txt", "/usr/share"));
+        assertEquals("/usr/share/file.txt", Utils.movePath("file.txt", "/usr/share/"));
+        assertEquals("/usr/share/noext", Utils.movePath("noext", "/usr/share/"));
+        assertEquals("/usr/share/file.txt", Utils.movePath("/home/user/file.txt", "/usr/share"));
+        assertEquals("/usr/share/file.txt", Utils.movePath("../relative/file.txt", "/usr/share/"));
     }
 }

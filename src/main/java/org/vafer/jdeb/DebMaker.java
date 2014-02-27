@@ -103,6 +103,8 @@ public class DebMaker {
     private boolean signPackage;
 
     private VariableResolver variableResolver;
+    private String openReplaceToken;
+    private String closeReplaceToken;
 
     private final Collection<DataProducer> dataProducers = new ArrayList<DataProducer>();
 
@@ -302,8 +304,8 @@ public class DebMaker {
                                 new ChangeSet(packageControlFile.get("Package"),
                                         packageControlFile.get("Version"),
                                         new Date(),
-                                        packageControlFile.get("Distribution") == null ? "stable" : packageControlFile.get("Distribution"),
-                                        packageControlFile.get("Urgency") == null ? "low" : packageControlFile.get("Urgency"),
+                                        packageControlFile.get("Distribution"),
+                                        packageControlFile.get("Urgency"),
                                         packageControlFile.get("Maintainer"),
                                         new String[0])
                         };
@@ -419,7 +421,7 @@ public class DebMaker {
             List<String> tempConffiles = populateConffiles(conffilesProducers);
             
             console.debug("Building control");
-            ControlBuilder controlBuilder = new ControlBuilder(console, variableResolver);
+            ControlBuilder controlBuilder = new ControlBuilder(console, variableResolver, openReplaceToken, closeReplaceToken);
             BinaryPackageControlFile packageControlFile = controlBuilder.createPackageControlFile(new File(control, "control"), size);
             if (packageControlFile.get("Package") == null) {
                 packageControlFile.set("Package", packageName);
@@ -515,5 +517,13 @@ public class DebMaker {
         } finally {
             input.close();
         }
-    } 
+    }
+
+    public void setOpenReplaceToken(String openReplaceToken) {
+        this.openReplaceToken = openReplaceToken;
+    }
+
+    public void setCloseReplaceToken(String closeReplaceToken) {
+        this.closeReplaceToken = closeReplaceToken;
+    }
 }

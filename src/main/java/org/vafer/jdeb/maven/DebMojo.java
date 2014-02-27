@@ -289,14 +289,10 @@ public class DebMojo extends AbstractPluginMojo {
 
     public void setOpenReplaceToken( String openReplaceToken ) {
         this.openReplaceToken = openReplaceToken;
-        // FIXME yuck!
-        FilteredFile.setOpenToken(openReplaceToken);
     }
 
     public void setCloseReplaceToken( String closeReplaceToken ) {
         this.closeReplaceToken = closeReplaceToken;
-        // FIXME yuck!
-        FilteredFile.setCloseToken(closeReplaceToken);
     }
 
     protected void setData( Data[] dataSet ) {
@@ -350,6 +346,14 @@ public class DebMojo extends AbstractPluginMojo {
     }
 
     /**
+     * @return whether the artifact is a POM or not
+     */
+    private boolean isPOM() {
+        String type = getProject().getArtifact().getType();
+        return "pom".equalsIgnoreCase(type);
+    }
+
+    /**
      * @return whether or not Maven is currently operating in the execution root
      */
     private boolean isSubmodule() {
@@ -377,7 +381,12 @@ public class DebMojo extends AbstractPluginMojo {
         final MavenProject project = getProject();
 
         if (skip) {
-            getLog().info("skipping execution");
+            getLog().info("skipping execution as configured");
+            return;
+        }
+
+        if (isPOM()) {
+            getLog().info("skipping execution because artifact is a pom");
             return;
         }
 
@@ -385,6 +394,7 @@ public class DebMojo extends AbstractPluginMojo {
             getLog().info("skipping sub module: jdeb executing at top-level only");
             return;
         }
+
 
         setData(dataSet);
 
@@ -478,6 +488,8 @@ public class DebMojo extends AbstractPluginMojo {
             debMaker.setPassphrase(passphrase);
             debMaker.setSignPackage(signPackage);
             debMaker.setResolver(resolver);
+            debMaker.setOpenReplaceToken(openReplaceToken);
+            debMaker.setCloseReplaceToken(closeReplaceToken);
             debMaker.validate();
             debMaker.makeDeb();
 

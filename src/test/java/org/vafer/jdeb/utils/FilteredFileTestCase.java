@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 The jdeb developers.
+ * Copyright 2014 The jdeb developers.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,6 +44,15 @@ public class FilteredFileTestCase extends TestCase {
 
         String actual = placeHolder.toString();
         assertEquals("#!/bin/sh\ncat jdebcustom1 \necho 'custom2'\n", actual);
+    }
+
+    public void testTokenSubstitutionWithinOpenCloseTokens() throws Exception {
+        InputStream in = new ReaderInputStream(new StringReader("#!/bin/bash\nif [[ -z \"$(grep [[artifactId]] /etc/passwd )\" ]] ; then\n"));
+
+        FilteredFile placeHolder = new FilteredFile(in, variableResolver);
+
+        String actual = placeHolder.toString();
+        assertEquals("", "#!/bin/bash\nif [[ -z \"$(grep jdeb /etc/passwd )\" ]] ; then\n", actual);
     }
 
     public void testVariableSubstitution() throws Exception {

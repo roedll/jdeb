@@ -360,6 +360,7 @@ public class DebMaker {
                 if (tempConffileItem.startsWith(".")) {
                     tempConffileItem = tempConffileItem.substring(1);
                 }
+                console.info("Adding conffile: " + tempConffileItem);
                 result.add(tempConffileItem);
             }
 

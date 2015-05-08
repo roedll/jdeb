@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 The jdeb developers.
+ * Copyright 2015 The jdeb developers.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,8 +24,6 @@ import java.security.MessageDigest;
  * Convenience class to provide digest info and length of a stream.
  *
  * ATTENTION: don't use outside of jdeb
- *
- * @author Torsten Curdt <tcurdt@vafer.org>
  */
 public class InformationOutputStream extends DigestOutputStream {
 
@@ -42,11 +40,13 @@ public class InformationOutputStream extends DigestOutputStream {
         return Utils.toHex(digest.digest());
     }
 
+    @Override
     public void write( byte[] b, int off, int len ) throws IOException {
         super.write(b, off, len);
         size += len;
     }
 
+    @Override
     public void write( int b ) throws IOException {
         super.write(b);
         size++;

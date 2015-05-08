@@ -1,33 +1,36 @@
 package org.vafer.jdeb.producers;
 
-import junit.framework.TestCase;
-import org.vafer.jdeb.DataConsumer;
+import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.argThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.Arrays;
 
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyInt;
-import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
+import junit.framework.TestCase;
+
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
+import org.hamcrest.BaseMatcher;
+import org.hamcrest.Description;
+import org.vafer.jdeb.DataConsumer;
 
 /**
  * Tests for {@link org.vafer.jdeb.producers.DataProducerFiles}.
- *
- * @author Roman Kashitsyn
  */
 public class DataProducerFilesTestCase extends TestCase {
     File file1;
     File file2;
 
+    @Override
     public void setUp() throws Exception {
         file1 = File.createTempFile(getClass().getSimpleName() + ".1", "txt");
         file2 = File.createTempFile(getClass().getSimpleName() + ".2", "txt");
     }
 
+    @Override
     public void tearDown() throws Exception {
         file1.delete();
         file2.delete();
@@ -44,17 +47,29 @@ public class DataProducerFilesTestCase extends TestCase {
                 null
         ).produce(consumer);
 
-        for (File f : Arrays.asList(file1, file2)) {
+        for (final File f : Arrays.asList(file1, file2)) {
             verify(consumer).onEachFile(
                     any(FileInputStream.class),
-                    eq("/usr/include/" + f.getName()),
-                    any(String.class),
-                    eq("root"),
-                    eq(0),
-                    eq("root"),
-                    eq(0),
-                    anyInt(),
-                    eq(f.length())
+                    argThat(new BaseMatcher<TarArchiveEntry>() {
+                        @Override
+                        public boolean matches(final Object o) {
+                            if (!(o instanceof TarArchiveEntry)) {
+                                return false;
+                            }
+                            final TarArchiveEntry e = (TarArchiveEntry) o;
+                            return e.getSize() == f.length()
+                                && e.getGroupId() == 0
+                                && e.getUserId() == 0
+                                && "root".equals(e.getUserName())
+                                && "root".equals(e.getGroupName())
+                                && ("/usr/include/" + f.getName()).equals(e.getName())
+                                   ;
+                        }
+
+                        @Override
+                        public void describeTo(final Description description) {
+                        }
+                    })
             );
         }
     }
@@ -70,17 +85,29 @@ public class DataProducerFilesTestCase extends TestCase {
                 null
         ).produce(consumer);
 
-        for (File f : Arrays.asList(file1, file2)) {
+        for (final File f : Arrays.asList(file1, file2)) {
             verify(consumer).onEachFile(
                     any(FileInputStream.class),
-                    eq(f.getAbsolutePath()),
-                    any(String.class),
-                    eq("root"),
-                    eq(0),
-                    eq("root"),
-                    eq(0),
-                    anyInt(),
-                    eq(f.length())
+                    argThat(new BaseMatcher<TarArchiveEntry>() {
+                        @Override
+                        public boolean matches(final Object o) {
+                            if (!(o instanceof TarArchiveEntry)) {
+                                return false;
+                            }
+                            final TarArchiveEntry e = (TarArchiveEntry) o;
+                            return e.getSize() == f.length()
+                                    && e.getGroupId() == 0
+                                    && e.getUserId() == 0
+                                    && "root".equals(e.getUserName())
+                                    && "root".equals(e.getGroupName())
+                                    && (f.getAbsolutePath()).equals(e.getName())
+                                    ;
+                        }
+
+                        @Override
+                        public void describeTo(final Description description) {
+                        }
+                    })
             );
         }
     }

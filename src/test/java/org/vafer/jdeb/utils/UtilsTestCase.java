@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 The jdeb developers.
+ * Copyright 2015 The jdeb developers.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -83,6 +83,11 @@ public class UtilsTestCase extends TestCase {
         result = Utils.replaceVariables(resolver, "if [[ \"${HOST_TYPE}\" -eq \"admin\" ]] ; then", "[[", "]]");
         assertEquals("if [[ \"${HOST_TYPE}\" -eq \"admin\" ]] ; then", result);
 
+        // end of line https://github.com/tcurdt/jdeb/issues/154
+        String input = "if [ -e some_file ]";
+        result = Utils.replaceVariables(resolver, input, "[[", "]]");
+        assertEquals(input, result);
+
         // mixed valid and unknown variables
         result = Utils.replaceVariables(resolver, "[[name]] [[test]]", "[[", "]]");
         assertEquals("jdeb [[test]]", result);
@@ -118,7 +123,34 @@ public class UtilsTestCase extends TestCase {
         assertEquals("should match", "1.0~RC2", Utils.convertToDebianVersion("1.0-RC2", true, "SNAPSHOT", cal.getTime()));
         assertEquals("should match", "1.0~alpha3", Utils.convertToDebianVersion("1.0-alpha3", true, "SNAPSHOT", cal.getTime()));
         assertEquals("should match", "1.0~Beta+4", Utils.convertToDebianVersion("1.0.Beta-4", true, "SNAPSHOT", cal.getTime()));
+        assertEquals("should match", "1.0~milestone+4", Utils.convertToDebianVersion("1.0-milestone-4", true, "SNAPSHOT", cal.getTime()));
+        assertEquals("should match", "1.0~a+4", Utils.convertToDebianVersion("1.0-a-4", true, "SNAPSHOT", cal.getTime()));
+        assertEquals("should match", "1.0~b+4", Utils.convertToDebianVersion("1.0-b-4", true, "SNAPSHOT", cal.getTime()));
         assertEquals("should match", "1.0~rc7", Utils.convertToDebianVersion("1.0rc7", true, "SNAPSHOT", cal.getTime()));
+        assertEquals("should match", "1.0~M1", Utils.convertToDebianVersion("1.0.M1", true, "SNAPSHOT", cal.getTime()));
+        assertEquals("should match", "1.0~M2", Utils.convertToDebianVersion("1.0-M2", true, "SNAPSHOT", cal.getTime()));
+        assertEquals("should match", "1.0~M3", Utils.convertToDebianVersion("1.0M3", true, "SNAPSHOT", cal.getTime()));
+
+        assertEquals("should match", "1.0+prj+3", Utils.convertToDebianVersion("1.0-prj_3", false, "SNAPSHOT", cal.getTime()));
+        assertEquals("should match", "1.0+prj+3~SNAPSHOT", Utils.convertToDebianVersion("1.0-prj_3+SNAPSHOT", false, "SNAPSHOT", cal.getTime()));
+        assertEquals("should match", "1.0+prj+3~SNAPSHOT", Utils.convertToDebianVersion("1.0-prj_3-SNAPSHOT", false, "SNAPSHOT", cal.getTime()));
+        assertEquals("should match", "1.0+prj+3~20130217000000", Utils.convertToDebianVersion("1.0-prj_3+SNAPSHOT", true, "SNAPSHOT", cal.getTime()));
+        assertEquals("should match", "1.0+prj+3~RC2", Utils.convertToDebianVersion("1.0-prj_3-RC2", true, "SNAPSHOT", cal.getTime()));
+        assertEquals("should match", "1.0+prj+3~alpha3", Utils.convertToDebianVersion("1.0-prj_3-alpha3", true, "SNAPSHOT", cal.getTime()));
+        assertEquals("should match", "1.0+prj+3~Beta+4", Utils.convertToDebianVersion("1.0-prj_3.Beta-4", true, "SNAPSHOT", cal.getTime()));
+        assertEquals("should match", "1.0+prj+3~milestone+4", Utils.convertToDebianVersion("1.0-prj_3-milestone-4", true, "SNAPSHOT", cal.getTime()));
+        assertEquals("should match", "1.0+prj+3~a+4", Utils.convertToDebianVersion("1.0-prj_3-a-4", true, "SNAPSHOT", cal.getTime()));
+        assertEquals("should match", "1.0+prj+3~b+4", Utils.convertToDebianVersion("1.0-prj_3-b-4", true, "SNAPSHOT", cal.getTime()));
+        assertEquals("should match", "1.0+prj+3~rc7", Utils.convertToDebianVersion("1.0-prj_3-rc7", true, "SNAPSHOT", cal.getTime()));
+        assertEquals("should match", "1.0+prj+3~M1", Utils.convertToDebianVersion("1.0-prj_3.M1", true, "SNAPSHOT", cal.getTime()));
+        assertEquals("should match", "1.0+prj+3~M2", Utils.convertToDebianVersion("1.0-prj_3-M2", true, "SNAPSHOT", cal.getTime()));
+        assertEquals("should match", "1.0+prj~M3", Utils.convertToDebianVersion("1.0-prj_M3", true, "SNAPSHOT", cal.getTime()));
+
+        assertEquals("should match", "1.0+prj+~M3", Utils.convertToDebianVersion("1.0-prj__-M3", true, "SNAPSHOT", cal.getTime()));
+        assertEquals("should match", "1.0+prj+.+~M3", Utils.convertToDebianVersion("1.0-prj_._-M3", true, "SNAPSHOT", cal.getTime()));
+        assertEquals("should match", "1.0+prj+3+~M3", Utils.convertToDebianVersion("1.0-prj_3:M3", true, "SNAPSHOT", cal.getTime()));
+        assertEquals("should match", "1.0+prj+3+c+~20130217000000", Utils.convertToDebianVersion("1.0-prj_3-c++-SNAPSHOT", true, "SNAPSHOT", cal.getTime()));
+        assertEquals("should match", "1.0+prj+3+c+~20130217000000", Utils.convertToDebianVersion("1.0-prj_3-c+++++++-SNAPSHOT", true, "SNAPSHOT", cal.getTime()));
     }
 
     public void testMovePath() {

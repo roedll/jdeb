@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 The jdeb developers.
+ * Copyright 2015 The jdeb developers.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,9 +40,6 @@ import org.vafer.jdeb.ArchiveVisitor;
 import org.vafer.jdeb.ArchiveWalker;
 import org.vafer.jdeb.Compression;
 
-/**
- * @author Emmanuel Bourg
- */
 public final class DebAntTaskTestCase extends TestCase {
 
     private Project project;
@@ -93,12 +90,9 @@ public final class DebAntTaskTestCase extends TestCase {
     }
 
     public void testEmptyPackage() {
-        try {
-            project.executeTarget("empty-package");
-            fail("No exception thrown");
-        } catch (BuildException e) {
-            // expected
-        }
+        project.executeTarget("empty-package");
+
+        assertTrue("package not build", new File("target/test-classes/test.deb").exists());
     }
 
     public void testPackageWithArchive() {

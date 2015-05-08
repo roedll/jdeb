@@ -9,7 +9,7 @@ the plugin to your POM like this
       <plugin>
         <artifactId>jdeb</artifactId>
         <groupId>org.vafer</groupId>
-        <version>1.0</version>
+        <version>1.3</version>
         <executions>
           <execution>
             <phase>package</phase>
@@ -35,6 +35,45 @@ the plugin to your POM like this
   </build>
 ```
 
+Or if you want to build a custom deb file
+
+```xml
+  <!-- Indicate it's a deb package which will automatically execute jdeb goal -->
+  <packaging>deb</packaging>
+
+  <build>
+    <extensions>
+      <!-- Add support for the "deb" packaging -->
+      <extension>
+        <groupId>org.vafer</groupId>
+        <artifactId>jdeb</artifactId>
+        <version>1.3</version>
+      </extension>
+    </extensions>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <artifactId>jdeb</artifactId>
+          <groupId>org.vafer</groupId>
+          <!-- Customize deb package -->
+          <configuration>
+            <dataSet>
+              <data>
+                <src>${project.build.directory}/preparedfiles</src>
+                <type>directory</type>
+                <mapper>
+                  <type>perm</type>
+                  <prefix>/usr/lib/xwiki/myproject</prefix>
+                </mapper>
+              </data>
+            </dataSet>
+          </configuration>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+  </build>
+```
+
 At least the one main control file is required to control the creation of the
 debian package. This required control file should be found in the control
 directory (inside the data dir). By default the control file name is also `control` which gives a path of `src/deb/control/control` by default. This control file contains the metadata about the Debian package. Usually it will look something along the lines of
@@ -49,7 +88,7 @@ directory (inside the data dir). By default the control file name is also `contr
     Description: jetty java servlet container
     Distribution: development
 
-but check out the [exmample](https://github.com/tcurdt/jdeb/tree/master/src/examples/maven) to get a better overview.
+but check out the [example](https://github.com/tcurdt/jdeb/tree/master/src/examples/maven) to get a better overview.
 
 If the environment variables `DEBEMAIL` and `DEBFULLNAME` are both set this
 will overrule the `Maintainer` field set in there. The `Installed-Size` will
@@ -86,16 +125,20 @@ changesOut    | The changes file generated                                      
 changesSave   | (NYI) The merged changes file                                                | No
 compression   | (NYI) Compression method for the data file (`gzip`, `bzip2`, `xz` or `none`) | No; defaults to `gzip`
 signPackage   | If the debian package should be signed                                       | No
+signMethod    | Which utility is used for verification (`dpkg-sig`, `debsig-verify`)         | No; defaults to `debsig-verify`
+signRole      | Determines the filename of the signature, debsig only verifies `origin`      | No; defaults to `origin`
 signCfgPrefix | Prefix for when reading keyring, key and passphrase from settings.xml        | No; defaults to `jdeb.`
 keyring       | The file containing the PGP keys                                             | No
 key           | The name of the key to be used in the keyring                                | No
 passphrase    | The passphrase to use the key                                                | No
 attach        | Attach artifact to project                                                   | No; defaults to `true`
-submodules    | Execute the goal on all sub-modules                                          | No; defaults to `true`
 snapshotExpand| Expand SNAPSHOT into the content of an environment variable or timestamp.    | No; defaults to `false`
 snapshotEnv   | Name of the environment variable. If it's empty defaults to a timestamp.     | No; defaults to `SNAPSHOT`
 verbose       | Verbose logging                                                              | No; defaults to `true`, will be `false` in the future
 skip          | Indicates if an execution should be skipped                                  | No; defaults to `false`
+skipSubmodules| Skip goal on all submodules                                                  | No; defaults to `false`
+skipPOMs      | Skip goal on POM artifacts                                                   | No; defaults to `true`
+
 
 If you use the `dataSet` element, you'll need to populate it with a one or
 more `data` elements. A `data` element is used to specify a directory, a
@@ -109,10 +152,11 @@ src              | The directory, tarball, file to include in the package       
 dst              | New filename at destination (type must be `file`)                            | No
 linkName         | The path of the link (type must be `link`)                                   | Yes for link
 linkTarget       | The target of the link (type must be `link`)                                 | Yes for link
+symlink          | Indicate if the link is a symblolic link (type must be `link`)               | No; defaults to `true`
 type             | Type of the data source. (archive, directory, file, files, link or template) | No; but will be Yes in the future
 missingSrc       | Fail if src file/folder is missing (ignore or fail)                          | No; defaults to `fail`
 includes         | A comma seperated list of files to include from the directory or tarball     | No; defaults to all files
-excludes         | A comma seperated list of files to exclude from the directory or tarball     | No; defaults to no exclutions
+excludes         | A comma seperated list of files to exclude from the directory or tarball     | No; defaults to no exclusions
 conffile         | A boolean value to define if the files should be included in the conffiles   | No; defaults to `false`
 mapper           | The files to exclude from the directory or tarball                           | No
 paths/(path..)   | One or more string literal paths that will created in the package            | No; Yes for type `template`
@@ -140,7 +184,7 @@ include a directory, a tarball, and a file in your deb package and then sign it 
       <plugin>
         <artifactId>jdeb</artifactId>
         <groupId>org.vafer</groupId>
-        <version>1.0</version>
+        <version>1.3</version>
         <executions>
           <execution>
             <phase>package</phase>
@@ -149,6 +193,8 @@ include a directory, a tarball, and a file in your deb package and then sign it 
             </goals>
             <configuration>
               <signPackage>true</signPackage>
+              <signMethod>dpkg-sig</signMethod>
+              <signRole>builder</signRole>
               <keyring>/home/user/.gnupg/secring.gpg</keyring>
               <key>8306FE21</key>
               <passphrase>abcdef</passphrase>
@@ -249,7 +295,7 @@ include a directory, a tarball, and a file in your deb package and then sign it 
     </plugins>
   </build>
 ```
-If you don't want to store your key information in the POM you can store this is your settings.xml, here's an example settings.xml:
+If you don't want to store your key information in the POM you can store this in your settings.xml, here's an example settings.xml:
 
 ```xml
   <settings>

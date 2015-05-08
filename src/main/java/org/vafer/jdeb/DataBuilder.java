@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 The jdeb developers.
+ * Copyright 2015 The jdeb developers.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -53,6 +53,7 @@ class DataBuilder {
             count = count.add(BigInteger.valueOf(size));
         }
 
+        @Override
         public String toString() {
             return "" + count;
         }
@@ -100,6 +101,7 @@ class DataBuilder {
 
         final List<String> addedDirectories = new ArrayList<String>();
         final DataConsumer receiver = new DataConsumer() {
+            @Override
             public void onEachDir( String dirname, String linkname, String user, int uid, String group, int gid, int mode, long size ) throws IOException {
                 // Check link name
                 checkField(linkname, TarConstants.NAMELEN);
@@ -119,34 +121,26 @@ class DataBuilder {
 
                 console.debug("dir: " + dirname);
             }
-            
-            public void onEachFile( InputStream inputStream, String filename, String linkname, String user, int uid, String group, int gid, int mode, long size ) throws IOException {
+
+            @Override
+            public void onEachFile(InputStream input, TarArchiveEntry entry) throws IOException {
                 // Check link name
-                checkField(linkname, TarConstants.NAMELEN);
+                checkField(entry.getLinkName(), TarConstants.NAMELEN);
                 // Check user name
-                checkField(user, TarConstants.UNAMELEN);
+                checkField(entry.getUserName(), TarConstants.UNAMELEN);
                 // Check group name
-                checkField(group, TarConstants.GNAMELEN);
+                checkField(entry.getGroupName(), TarConstants.GNAMELEN);
 
-                filename = fixPath(filename);
+                entry.setName(fixPath(entry.getName()));
 
-                createParentDirectories(filename, user, uid, group, gid);
-
-                final TarArchiveEntry entry = new TarArchiveEntry(filename, true);
-
-                entry.setUserName(user);
-                entry.setUserId(uid);
-                entry.setGroupName(group);
-                entry.setGroupId(gid);
-                entry.setMode(mode);
-                entry.setSize(size);
+                createParentDirectories(entry.getName(), entry.getUserName(), entry.getUserId(), entry.getGroupName(), entry.getGroupId());
 
                 tarOutputStream.putArchiveEntry(entry);
 
-                dataSize.add(size);
+                dataSize.add(entry.getSize());
                 digest.reset();
 
-                Utils.copy(inputStream, new DigestOutputStream(tarOutputStream, digest));
+                Utils.copy(input, new DigestOutputStream(tarOutputStream, digest));
 
                 final String md5 = Utils.toHex(digest.digest());
 
@@ -165,30 +159,22 @@ class DataBuilder {
                         " md5: " + md5
                 );
 
-                // append to file md5 list
-                checksums.append(md5).append(" ").append(entry.getName()).append('\n');
+                // append to file md5 list, two spaces to be compatible with GNU coreutils md5sum
+                checksums.append(md5).append("  ").append(entry.getName()).append('\n');
             }
 
-            public void onEachLink(String path, String linkname, boolean symlink, String user, int uid, String group, int gid, int mode) throws IOException {
+            @Override
+            public void onEachLink(TarArchiveEntry entry) throws IOException {
                 // Check link name
-                checkField(linkname, TarConstants.NAMELEN);
+                checkField(entry.getLinkName(), TarConstants.NAMELEN);
                 // Check user name
-                checkField(user, TarConstants.UNAMELEN);
+                checkField(entry.getUserName(), TarConstants.UNAMELEN);
                 // Check group name
-                checkField(group, TarConstants.GNAMELEN);
+                checkField(entry.getGroupName(), TarConstants.GNAMELEN);
 
-                path = fixPath(path);
+                entry.setName(fixPath(entry.getName()));
 
-                createParentDirectories(path, user, uid, group, gid);
-
-                final TarArchiveEntry entry = new TarArchiveEntry(path, symlink ? TarArchiveEntry.LF_SYMLINK : TarArchiveEntry.LF_LINK);
-                entry.setLinkName(linkname);
-
-                entry.setUserName(user);
-                entry.setUserId(uid);
-                entry.setGroupName(group);
-                entry.setGroupId(gid);
-                entry.setMode(mode);
+                createParentDirectories(entry.getName(), entry.getUserName(), entry.getUserId(), entry.getGroupName(), entry.getGroupId());
 
                 tarOutputStream.putArchiveEntry(entry);
                 tarOutputStream.closeArchiveEntry();

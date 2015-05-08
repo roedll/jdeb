@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 The jdeb developers.
+ * Copyright 2015 The jdeb developers.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -129,14 +129,12 @@ class ControlBuilder {
             }
         }
         
-        if ((conffiles != null) && (conffiles.size() > 0)) {
-            if (foundConffiles) {
-                console.info("Found file 'conffiles' in the control directory. Skipping conffiles generation.");
-            } else {
-                addControlEntry("conffiles", createPackageConffilesFile(conffiles), outputStream);
-            }
-        } else if ((conffiles != null) && (conffiles.size() == 0)) {
-            console.info("Skipping 'conffiles' generation. No entries provided.");
+        if (foundConffiles) {
+            console.info("Found file 'conffiles' in the control directory. Skipping conffiles generation.");
+        } else if ((conffiles != null) && (conffiles.size() > 0)) {
+            addControlEntry("conffiles", createPackageConffilesFile(conffiles), outputStream);
+        } else {
+            console.info("Skipping 'conffiles' generation. No entries defined in maven/pom or ant/build.xml.");
         }
 
         if (packageControlFile == null) {

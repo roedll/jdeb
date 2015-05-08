@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 The jdeb developers.
+ * Copyright 2015 The jdeb developers.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,8 @@
 package org.vafer.jdeb.producers;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 
-import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.tools.ant.DirectoryScanner;
 import org.vafer.jdeb.DataConsumer;
 import org.vafer.jdeb.DataProducer;
@@ -30,8 +27,6 @@ import org.vafer.jdeb.utils.Utils;
 /**
  * DataProducer iterating over a directory.
  * For cross-platform permissions and ownerships you probably want to use a Mapper, too.
- *
- * @author Torsten Curdt
  */
 public final class DataProducerDirectory extends AbstractDataProducer implements DataProducer {
 
@@ -46,6 +41,7 @@ public final class DataProducerDirectory extends AbstractDataProducer implements
         scanner.setFollowSymlinks(true);
     }
 
+    @Override
     public void produce( final DataConsumer pReceiver ) throws IOException {
 
         scanner.scan();

@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 The jdeb developers.
+ * Copyright 2015 The jdeb developers.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,13 +42,10 @@ import org.bouncycastle.openpgp.operator.bc.BcPGPDigestCalculatorProvider;
 
 /**
  * Signing with OpenPGP.
- * 
- * @author Torsten Curdt
- * @author Emmanuel Bourg
  */
 public class PGPSigner {
 
-    private static final byte[] EOL = "\r\n".getBytes(Charset.forName("UTF-8"));
+    private static final byte[] EOL = "\n".getBytes(Charset.forName("UTF-8"));
 
     private PGPSecretKey secretKey;
     private PGPPrivateKey privateKey;
@@ -146,7 +143,7 @@ public class PGPSigner {
             while (kIt.hasNext()) {
                 PGPSecretKey key = (PGPSecretKey) kIt.next();
                 
-                if (key.isSigningKey() && Long.toHexString(key.getKeyID() & 0xFFFFFFFFL).equals(keyId.toLowerCase())) {
+                if (key.isSigningKey() && String.format("%08x", key.getKeyID() & 0xFFFFFFFFL).equals(keyId.toLowerCase())) {
                     return key;
                 }
             }

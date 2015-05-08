@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 The jdeb developers.
+ * Copyright 2015 The jdeb developers.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,8 @@
 
 package org.vafer.jdeb.maven;
 
+import static org.vafer.jdeb.utils.Utils.lookupIfEmpty;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -28,8 +30,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
+import org.apache.commons.compress.archivers.tar.TarConstants;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.execution.MavenSession;
+import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
@@ -40,6 +45,7 @@ import org.apache.maven.project.MavenProjectHelper;
 import org.apache.maven.settings.Profile;
 import org.apache.maven.settings.Settings;
 import org.apache.tools.tar.TarEntry;
+import org.codehaus.plexus.util.StringUtils;
 import org.sonatype.plexus.components.sec.dispatcher.SecDispatcher;
 import org.sonatype.plexus.components.sec.dispatcher.SecDispatcherException;
 import org.vafer.jdeb.Console;
@@ -48,17 +54,15 @@ import org.vafer.jdeb.DataProducer;
 import org.vafer.jdeb.DebMaker;
 import org.vafer.jdeb.PackagingException;
 import org.vafer.jdeb.utils.MapVariableResolver;
+import org.vafer.jdeb.utils.SymlinkUtils;
 import org.vafer.jdeb.utils.Utils;
 import org.vafer.jdeb.utils.VariableResolver;
-
-import static org.vafer.jdeb.utils.Utils.lookupIfEmpty;
 
 /**
  * Creates Debian package
  */
-@SuppressWarnings("unused")
 @Mojo(name = "jdeb", defaultPhase = LifecyclePhase.PACKAGE)
-public class DebMojo extends AbstractPluginMojo {
+public class DebMojo extends AbstractMojo {
 
     @Component
     private MavenProjectHelper projectHelper;
@@ -139,18 +143,22 @@ public class DebMojo extends AbstractPluginMojo {
     private File baseDir;
 
     /**
-     * Run the plugin on all sub-modules.
-     * If set to false, the plugin will be run in the same folder where the
-     * mvn command was invoked
-     */
-    @Parameter(defaultValue = "true")
-    private boolean submodules;
-
-    /**
      * The Maven Session Object
      */
-    @Component
+    @Parameter( defaultValue = "${session}", readonly = true )
     private MavenSession session;
+    
+    /**
+     * The Maven Project Object
+     */
+    @Parameter( defaultValue = "${project}", readonly = true )
+    private MavenProject project;
+
+    /**
+     * The build directory
+     */
+    @Parameter(property = "project.build.directory", required = true, readonly = true)
+    private File buildDirectory;
 
     /**
      * The classifier of attached artifact
@@ -163,7 +171,8 @@ public class DebMojo extends AbstractPluginMojo {
      * The "data" entries may specify a tarball (tar.gz, tar.bz2, tgz), a
      * directory, or a normal file. An entry would look something like this in
      * your pom.xml:
-     *
+     * 
+     * 
      * <pre>
      *   <build>
      *     <plugins>
@@ -210,15 +219,16 @@ public class DebMojo extends AbstractPluginMojo {
      *     </plugins>
      *   </build>
      * </pre>
+     * 
      */
     @Parameter
     private Data[] dataSet;
 
     /**
      * @deprecated
-     */
     @Parameter(defaultValue = "false")
     private boolean timestamped;
+     */
 
     /**
      * When enabled SNAPSHOT inside the version gets replaced with current timestamp or
@@ -248,13 +258,38 @@ public class DebMojo extends AbstractPluginMojo {
     @Parameter(defaultValue = "false")
     private boolean skip;
 
+    @Parameter(defaultValue = "true")
+    private boolean skipPOMs;
+
+    @Parameter(defaultValue = "false")
+    private boolean skipSubmodules;
+    
+    /**
+     * @deprecated
+     */
+    @Parameter(defaultValue = "true")
+    private boolean submodules;
+
+
     /**
      * If signPackage is true then a origin signature will be placed
      * in the generated package.
      */
     @Parameter(defaultValue = "false")
     private boolean signPackage;
+    
+    /**
+     * Defines which utility is used to verify the signed package
+     */
+    @Parameter(defaultValue = "debsig-verify")
+    private String signMethod;
 
+    /**
+     * Defines the role to sign with
+     */
+    @Parameter(defaultValue = "origin")
+    private String signRole;
+    
     /**
      * The keyring to use for signing operations.
      */
@@ -285,10 +320,12 @@ public class DebMojo extends AbstractPluginMojo {
      */
     @Parameter(defaultValue = "${settings}")
     private Settings settings;
+    
+    @Parameter(defaultValue = "")
+    private String propertyPrefix;
 
     /* end of parameters */
-
-
+    
     private static final String KEY = "key";
     private static final String KEYRING = "keyring";
     private static final String PASSPHRASE = "passphrase";
@@ -354,11 +391,7 @@ public class DebMojo extends AbstractPluginMojo {
      * @return the Maven project version
      */
     private String getProjectVersion() {
-        if (this.timestamped) {
-            getLog().error("Configuration 'timestamped' is deprecated. Please use snapshotExpand and snapshotEnv instead.");
-        }
-
-        return Utils.convertToDebianVersion(getProject().getVersion(), this.snapshotExpand || this.timestamped, this.snapshotEnv, session.getStartTime());
+        return Utils.convertToDebianVersion(getProject().getVersion(), this.snapshotExpand, this.snapshotEnv, session.getStartTime());
     }
 
     /**
@@ -367,6 +400,13 @@ public class DebMojo extends AbstractPluginMojo {
     private boolean isPOM() {
         String type = getProject().getArtifact().getType();
         return "pom".equalsIgnoreCase(type);
+    }
+
+    /**
+     * @return whether the artifact is of configured type (i.e. the package to generate is the main artifact)
+     */
+    private boolean isType() {
+        return type.equals(getProject().getArtifact().getType());
     }
 
     /**
@@ -391,22 +431,23 @@ public class DebMojo extends AbstractPluginMojo {
      *
      * @throws MojoExecutionException on error
      */
+    @Override
     public void execute() throws MojoExecutionException {
 
         final MavenProject project = getProject();
 
         if (skip) {
-            getLog().info("skipping execution as configured");
+            getLog().info("skipping as configured (skip)");
             return;
         }
 
-        if (isPOM()) {
-            getLog().info("skipping execution because artifact is a pom");
+        if (skipPOMs && isPOM()) {
+            getLog().info("skipping because artifact is a pom (skipPOMs)");
             return;
         }
 
-        if (isSubmodule() && !submodules) {
-            getLog().info("skipping sub module: jdeb executing at top-level only");
+        if (skipSubmodules && isSubmodule()) {
+            getLog().info("skipping submodule (skipSubmodules)");
             return;
         }
 
@@ -430,19 +471,7 @@ public class DebMojo extends AbstractPluginMojo {
         // if there are no producers defined we try to use the artifacts
         if (dataProducers.isEmpty()) {
 
-            if (!hasMainArtifact()) {
-
-                final String packaging = project.getPackaging();
-                if ("pom".equalsIgnoreCase(packaging)) {
-                    getLog().warn("Creating empty debian package.");
-                } else {
-                    throw new MojoExecutionException(
-                        "Nothing to include into the debian package. " +
-                            "Did you maybe forget to add a <data> tag or call the plugin directly?");
-                }
-
-            } else {
-
+            if (hasMainArtifact()) {
                 Set<Artifact> artifacts = new HashSet<Artifact>();
 
                 artifacts.add(project.getArtifact());
@@ -468,13 +497,26 @@ public class DebMojo extends AbstractPluginMojo {
                             @Override
                             public void produce( final DataConsumer receiver ) {
                                 try {
-                                    receiver.onEachFile(
-                                        new FileInputStream(file),
-                                        new File(installDirFile, file.getName()).getAbsolutePath(),
-                                        "",
-                                        "root", 0, "root", 0,
-                                        TarEntry.DEFAULT_FILE_MODE,
-                                        file.length());
+                                    final File path = new File(installDirFile.getPath(), file.getName());
+                                    final String entryName = path.getPath();
+
+                                    final boolean symbolicLink = SymlinkUtils.isSymbolicLink(path);
+                                    final TarArchiveEntry e;
+                                    if (symbolicLink) {
+                                        e = new TarArchiveEntry(entryName, TarConstants.LF_SYMLINK);
+                                        e.setLinkName(SymlinkUtils.readSymbolicLink(path));
+                                    } else {
+                                        e = new TarArchiveEntry(entryName, true);
+                                    }
+
+                                    e.setUserId(0);
+                                    e.setGroupId(0);
+                                    e.setUserName("root");
+                                    e.setGroupName("root");
+                                    e.setMode(TarEntry.DEFAULT_FILE_MODE);
+                                    e.setSize(file.length());
+
+                                    receiver.onEachFile(new FileInputStream(file), e);
                                 } catch (Exception e) {
                                     getLog().error(e);
                                 }
@@ -502,6 +544,8 @@ public class DebMojo extends AbstractPluginMojo {
             debMaker.setKey(key);
             debMaker.setPassphrase(passphrase);
             debMaker.setSignPackage(signPackage);
+            debMaker.setSignMethod(signMethod);
+            debMaker.setSignRole(signRole);
             debMaker.setResolver(resolver);
             debMaker.setOpenReplaceToken(openReplaceToken);
             debMaker.setCloseReplaceToken(closeReplaceToken);
@@ -511,13 +555,28 @@ public class DebMojo extends AbstractPluginMojo {
             // Always attach unless explicitly set to false
             if ("true".equalsIgnoreCase(attach)) {
                 console.info("Attaching created debian package " + debFile);
-                projectHelper.attachArtifact(project, type, classifier, debFile);
+                if (!isType()) {
+                    projectHelper.attachArtifact(project, type, classifier, debFile);
+                } else {
+                    project.getArtifact().setFile(debFile);
+                }
             }
 
         } catch (PackagingException e) {
             getLog().error("Failed to create debian package " + debFile, e);
             throw new MojoExecutionException("Failed to create debian package " + debFile, e);
         }
+        
+        if (!StringUtils.isBlank(propertyPrefix)) {
+          project.getProperties().put(propertyPrefix+"version", getProjectVersion() );
+          project.getProperties().put(propertyPrefix+"deb", debFile.getAbsolutePath());
+          project.getProperties().put(propertyPrefix+"deb.name", debFile.getName());
+          project.getProperties().put(propertyPrefix+"changes", changesOutFile.getAbsolutePath());
+          project.getProperties().put(propertyPrefix+"changes.name", changesOutFile.getName());
+          project.getProperties().put(propertyPrefix+"changes.txt", changesSaveFile.getAbsolutePath());
+          project.getProperties().put(propertyPrefix+"changes.txt.name", changesSaveFile.getName());
+        }
+        
     }
 
     /**
@@ -576,6 +635,19 @@ public class DebMojo extends AbstractPluginMojo {
 
         return maybeEncryptedPassphrase;
     }
+    
+    /**
+     * 
+     * @return the maven project used by this mojo
+     */
+    private MavenProject getProject() {
+        if (project.getExecutionProject() != null) {
+            return project.getExecutionProject();
+        }
+
+        return project;
+    }
+
 
 
     /**

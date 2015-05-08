@@ -1,3 +1,27 @@
+## Version 1.4.1, in progress
+
+## Version 1.4, released 20.02.2014
+* [FIX] Support comments in control files
+* [FIX] Fixed handling of links
+* [FIX] Fixed hex format to use leading 0 when signing
+* [ADD] Provide jdeb build information back to maven (if propertyPrefix is set)
+* [ADD] Allow for Multi-Arch declaration in control files
+
+## Version 1.3, released 25.07.2014
+
+* [CHG] Switched from maven2 to maven3
+* [FIX] Fixed badly formatted version for "milestone", "m", "a", "b" and "cr" (they where not matched as beta versions)
+* [FIX] Add two spaces in the md5sums file between the checksum and the filename to be compatible with GNU coreutils md5sum
+
+## Version 1.2, released 22.06.2014
+
+* [CHG] Deprecated "submodules" in favour of "skipSubmodules"
+* [FIX] Warned about missing signing settings even when not signing
+* [FIX] Fixed variable replacement issue on line endings
+* [ADD] Support &lt;packaging&gt;deb&lt;/packaging&gt; in Maven
+* [ADD] Support for "signMethod" and "signRole"
+* [ADD] Added "skipPOMs"
+
 ## Version 1.1.1, released 10.03.2014
 
 * [FIX] renamed SNAPSHOT handling to snapshotExpand & snapshotEnv

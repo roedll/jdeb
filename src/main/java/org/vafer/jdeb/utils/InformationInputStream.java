@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 The jdeb developers.
+ * Copyright 2015 The jdeb developers.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -156,6 +156,7 @@ public final class InformationInputStream extends FilterInputStream {
         nonascii++;
     }
 
+    @Override
     public int read() throws IOException {
         int b = super.read();
         if (b != -1) {
@@ -164,6 +165,7 @@ public final class InformationInputStream extends FilterInputStream {
         return b;
     }
 
+    @Override
     public int read( byte[] b, int off, int len ) throws IOException {
         int length = super.read(b, off, len);
         for (int i = 0; i < length; i++) {
@@ -172,6 +174,7 @@ public final class InformationInputStream extends FilterInputStream {
         return length;
     }
 
+    @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
         sb.append("{");
